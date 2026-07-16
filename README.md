@@ -85,6 +85,52 @@ Writes require the matching permission on the token owner's account (e.g. `AddEl
 
 The [examples/](examples/) folder shows how to hook the CLI into your stream: Streamer.bot-triggered alerts on subs/raids/channel points, automatic Pogly↔OBS scene sync, live counters, and one rick roll. Anything that can run a program can drive your overlay.
 
+## Model Context Protocol (MCP) Server
+
+`pogly-cli` can run as a Model Context Protocol (MCP) server, allowing AI assistants (like Claude Desktop, Cursor, or Windsurf) to view, build, and manage your Pogly overlay layouts and elements directly.
+
+To start the MCP server using `stdio` transport:
+
+```
+pogly mcp
+```
+
+### Claude Desktop Integration
+
+Add this to your `claude_desktop_config.json` (typically at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "pogly": {
+      "command": "pogly",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Or for development / running from source:
+
+```json
+{
+  "mcpServers": {
+    "pogly": {
+      "command": "cargo",
+      "args": [
+        "run",
+        "--manifest-path",
+        "/absolute/path/to/pogly-cli/Cargo.toml",
+        "--bin",
+        "pogly-cli",
+        "--",
+        "mcp"
+      ]
+    }
+  }
+}
+```
+
 ## Building from source
 
 ```

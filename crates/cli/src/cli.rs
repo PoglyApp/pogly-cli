@@ -38,6 +38,8 @@ pub enum Cmd {
     Folders(FoldersCmd),
     /// Show or manage the installed CLI version
     Version(VersionCmd),
+    /// Run the MCP (Model Context Protocol) server
+    Mcp,
 }
 
 #[derive(Args)]
