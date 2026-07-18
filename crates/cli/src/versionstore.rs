@@ -70,11 +70,14 @@ fn download(url: &str) -> Result<Vec<u8>> {
 }
 
 pub fn install_version(version: &str, release: &Value) -> Result<()> {
-    let url = asset_url(release, "pogly-cli.exe").context("release has no pogly-cli.exe asset")?;
+    let binary_name = if cfg!(windows) { "pogly-cli.exe" } else { "pogly-cli" };
+    let url = asset_url(release, binary_name)
+        .or_else(|| asset_url(release, "pogly-cli.exe"))
+        .context("release has no pogly-cli asset")?;
     let dir = paths::bin_dir().join(version);
     std::fs::create_dir_all(&dir)?;
-    let target = dir.join("pogly-cli.exe");
-    let tmp = dir.join("pogly-cli.exe.tmp");
+    let target = dir.join(binary_name);
+    let tmp = dir.join(format!("{binary_name}.tmp"));
     std::fs::write(&tmp, download(url)?)?;
     std::fs::rename(&tmp, &target)
         .with_context(|| format!("failed to install {}", target.display()))?;
@@ -82,18 +85,20 @@ pub fn install_version(version: &str, release: &Value) -> Result<()> {
 }
 
 // The launcher stays a running parent process during upgrades, so it can't be
-// overwritten — but Windows allows renaming a running image out of the way.
+// overwritten — but Windows/Unix allows renaming a running image out of the way.
 // The launcher deletes the .old file on its next start.
 pub fn replace_launcher(release: &Value) -> Result<()> {
     let path = paths::launcher_path();
     if !path.is_file() {
         return Ok(());
     }
-    let Some(url) = asset_url(release, "pogly.exe") else {
+    let launcher_name = if cfg!(windows) { "pogly.exe" } else { "pogly" };
+    let Some(url) = asset_url(release, launcher_name).or_else(|| asset_url(release, "pogly.exe")) else {
         return Ok(());
     };
     let bytes = download(url)?;
-    let old = paths::local_dir().join("pogly.exe.old");
+    let launcher_old_name = if cfg!(windows) { "pogly.exe.old" } else { "pogly.old" };
+    let old = paths::local_dir().join(launcher_old_name);
     let _ = std::fs::remove_file(&old);
     std::fs::rename(&path, &old).context("failed to move the current launcher aside")?;
     if let Err(e) = std::fs::write(&path, bytes) {

@@ -8,6 +8,8 @@ mod elementdata;
 mod elements;
 mod folders;
 mod layouts;
+mod mcp;
+mod osc;
 mod overlay;
 mod ping;
 mod version;
@@ -24,6 +26,8 @@ pub fn run(cli: Cli) -> Result<()> {
         Cmd::Layouts(c) => layouts::run(c.cmd, &global),
         Cmd::Folders(c) => folders::run(c.cmd, &global),
         Cmd::Version(c) => version::run(c),
+        Cmd::Mcp => mcp::run(&global),
+        Cmd::Osc(c) => osc::run(c, &global),
     }
 }
 

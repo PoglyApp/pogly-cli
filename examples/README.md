@@ -8,8 +8,10 @@ Small scripts showing how to drive a Pogly overlay from the outside world. All o
 | [sync-layout.ps1](sync-layout.ps1) | Switches the active Pogly layout to match an OBS scene name; skips scenes without a matching layout |
 | [set-text.ps1](set-text.ps1) | Rewrites an existing text element — donation goals, death counters, "subs today" |
 | [rickroll.sh](rickroll.sh) | Spawns a looping rick roll and teleports it around the canvas for 10 seconds, then cleans up |
+| [send-osc.py](send-osc.py) | Sends OSC (Open Sound Control) messages to control layouts and elements over UDP |
 
 ## Hooking into Streamer.bot
+
 
 Any event Streamer.bot can see (Twitch, Kick, YouTube subs/raids/follows/channel points, OBS scene changes) can run these scripts:
 
@@ -38,6 +40,16 @@ pogly layouts set-active --name BRB
 ```
 
 for one-button scene switches, or point a button at any script above.
+
+## Open Sound Control (OSC)
+
+Alternatively, you can run `pogly` as an OSC listener to receive instant layout and element updates over UDP (e.g. from TouchOSC, Stream Deck OSC plugins, or VRChat):
+
+```
+pogly osc --port 9000
+```
+
+See [send-osc.py](send-osc.py) for an example sender script.
 
 ## Writing your own
 

@@ -17,3 +17,5 @@ serde_json = "1"
 toml = "0.8"
 anyhow = "1"
 semver = "1"
+rosc = "0.10"
+

@@ -38,6 +38,10 @@ pub enum Cmd {
     Folders(FoldersCmd),
     /// Show or manage the installed CLI version
     Version(VersionCmd),
+    /// Run the MCP (Model Context Protocol) server
+    Mcp,
+    /// Run the OSC (Open Sound Control) listener server
+    Osc(OscCmd),
 }
 
 #[derive(Args)]
@@ -443,3 +447,14 @@ pub enum FoldersSub {
         no_preserve_elements: bool,
     },
 }
+
+#[derive(Args)]
+pub struct OscCmd {
+    /// Host interface to bind to
+    #[arg(long, default_value = "127.0.0.1")]
+    pub host: String,
+    /// UDP port to listen on
+    #[arg(long, default_value = "9000")]
+    pub port: u16,
+}
+
