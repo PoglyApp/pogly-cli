@@ -115,6 +115,9 @@ pub enum ElementsSub {
         /// Filter by layout id
         #[arg(long)]
         layout: Option<u32>,
+        /// Include each widget's rawData (its full source)
+        #[arg(long)]
+        raw: bool,
     },
     /// Create an element
     #[command(subcommand)]

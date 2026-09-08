@@ -8,17 +8,18 @@ use crate::output;
 
 pub fn run(cmd: ElementsSub, global: &GlobalArgs) -> Result<()> {
     match cmd {
-        ElementsSub::List { id, layout } => list(global, id, layout),
+        ElementsSub::List { id, layout, raw } => list(global, id, layout, raw),
         ElementsSub::Add(add) => create(global, add),
         ElementsSub::Update(update) => patch(global, update),
         ElementsSub::Delete { id } => delete(global, id),
     }
 }
 
-fn list(global: &GlobalArgs, id: Option<u32>, layout: Option<u32>) -> Result<()> {
+fn list(global: &GlobalArgs, id: Option<u32>, layout: Option<u32>, raw: bool) -> Result<()> {
     let query = qs(&[
         ("id", id.map(|v| v.to_string())),
         ("layout", layout.map(|v| v.to_string())),
+        ("raw", raw.then(|| "true".to_string())),
     ]);
     let response = super::client_for(global)?.get(&format!("elements{query}"))?;
     if global.json {
@@ -81,6 +82,11 @@ fn print_detail(element: &Element) {
     if let Some(w) = &element.widget {
         println!("  Widget:   data #{}", w.element_data_id);
         println!("  Size:     {}x{}", w.width, w.height);
+        match w.raw_data.as_deref() {
+            Some("") => println!("  Raw data: (empty, uses the linked element data)"),
+            Some(raw) => println!("  Raw data: {}", output::truncate(raw, 60)),
+            None => {}
+        }
     }
     if let Some(m) = &element.media {
         println!("  Source:   {}", m.source);

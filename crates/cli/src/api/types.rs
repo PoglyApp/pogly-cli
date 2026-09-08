@@ -84,6 +84,8 @@ pub struct WidgetGroup {
     pub width: i64,
     #[serde(default)]
     pub height: i64,
+    // Only present when the list was fetched with ?raw=true.
+    pub raw_data: Option<String>,
 }
 
 #[derive(Deserialize)]
