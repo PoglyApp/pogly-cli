@@ -2,11 +2,45 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn local_dir() -> PathBuf {
-    std::env::var_os("LOCALAPPDATA")
-        .map(PathBuf::from)
-        .unwrap_or_else(std::env::temp_dir)
-        .join("Pogly")
-        .join("cli")
+    #[cfg(windows)]
+    {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(std::env::temp_dir)
+            .join("Pogly")
+            .join("cli")
+    }
+
+    #[cfg(not(windows))]
+    {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                std::env::var_os("HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(std::env::temp_dir)
+                    .join(".local")
+                    .join("share")
+            })
+            .join("Pogly")
+            .join("cli")
+    }
+}
+
+fn cli_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "pogly-cli.exe"
+    } else {
+        "pogly-cli"
+    }
+}
+
+fn launcher_old_name() -> &'static str {
+    if cfg!(windows) {
+        "pogly.exe.old"
+    } else {
+        "pogly.old"
+    }
 }
 
 fn selected_version(dir: &Path) -> Option<String> {
@@ -14,14 +48,17 @@ fn selected_version(dir: &Path) -> Option<String> {
         .ok()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
+
     if pointer.is_some() {
         return pointer;
     }
+
     // No pointer file: fall back to the highest installed version.
+    let binary_name = cli_binary_name();
     let mut versions: Vec<String> = std::fs::read_dir(dir.join("bin"))
         .ok()?
         .flatten()
-        .filter(|e| e.path().join("pogly-cli.exe").is_file())
+        .filter(|e| e.path().join(binary_name).is_file())
         .filter_map(|e| e.file_name().into_string().ok())
         .collect();
     versions.sort();
@@ -36,7 +73,7 @@ fn main() {
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
     {
-        let _ = std::fs::remove_file(parent.join("pogly.exe.old"));
+        let _ = std::fs::remove_file(parent.join(launcher_old_name()));
     }
 
     let Some(version) = selected_version(&dir) else {
@@ -45,10 +82,13 @@ fn main() {
         std::process::exit(1);
     };
 
-    let exe = dir.join("bin").join(&version).join("pogly-cli.exe");
+    let exe = dir.join("bin").join(&version).join(cli_binary_name());
     if !exe.is_file() {
         eprintln!("pogly-cli {version} is not installed at {}", exe.display());
-        eprintln!("Run `pogly version list` from an installed version, or reinstall from https://github.com/PoglyApp/pogly-cli/releases");
+        eprintln!(
+            "Run `pogly version list` from an installed version, \
+             or reinstall from https://github.com/PoglyApp/pogly-cli/releases"
+        );
         std::process::exit(1);
     }
 

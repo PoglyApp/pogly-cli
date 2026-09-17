@@ -1,17 +1,34 @@
 use std::time::Duration;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use serde_json::Value;
 use ureq::Agent;
 
 use crate::paths;
 
+fn cli_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "pogly-cli.exe"
+    } else {
+        "pogly-cli"
+    }
+}
+
+fn launcher_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "pogly.exe"
+    } else {
+        "pogly"
+    }
+}
+
 pub fn installed_versions() -> Vec<String> {
+    let binary_name = cli_binary_name();
     let mut versions: Vec<String> = std::fs::read_dir(paths::bin_dir())
         .map(|entries| {
             entries
                 .flatten()
-                .filter(|e| e.path().join("pogly-cli.exe").is_file())
+                .filter(|e| e.path().join(binary_name).is_file())
                 .filter_map(|e| e.file_name().into_string().ok())
                 .collect()
         })
@@ -70,14 +87,24 @@ fn download(url: &str) -> Result<Vec<u8>> {
 }
 
 pub fn install_version(version: &str, release: &Value) -> Result<()> {
-    let url = asset_url(release, "pogly-cli.exe").context("release has no pogly-cli.exe asset")?;
+    let binary_name = cli_binary_name();
+    let url = asset_url(release, binary_name)
+        .with_context(|| format!("release has no {binary_name} asset"))?;
     let dir = paths::bin_dir().join(version);
     std::fs::create_dir_all(&dir)?;
-    let target = dir.join("pogly-cli.exe");
-    let tmp = dir.join("pogly-cli.exe.tmp");
+    let target = dir.join(binary_name);
+    let tmp = dir.join(format!("{binary_name}.tmp"));
     std::fs::write(&tmp, download(url)?)?;
     std::fs::rename(&tmp, &target)
         .with_context(|| format!("failed to install {}", target.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(&target)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&target, permissions)?;
+    }
     Ok(())
 }
 
@@ -89,16 +116,36 @@ pub fn replace_launcher(release: &Value) -> Result<()> {
     if !path.is_file() {
         return Ok(());
     }
-    let Some(url) = asset_url(release, "pogly.exe") else {
+    let launcher_name = launcher_binary_name();
+    let Some(url) = asset_url(release, launcher_name) else {
         return Ok(());
     };
     let bytes = download(url)?;
-    let old = paths::local_dir().join("pogly.exe.old");
+    let old = paths::local_dir().join(if cfg!(windows) {
+        "pogly.exe.old"
+    } else {
+        "pogly.old"
+    });
+    let tmp = paths::local_dir().join(if cfg!(windows) {
+        "pogly.exe.tmp"
+    } else {
+        "pogly.tmp"
+    });
     let _ = std::fs::remove_file(&old);
+    let _ = std::fs::remove_file(&tmp);
+    std::fs::write(&tmp, bytes).context("failed to write new launcher")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(&tmp)?.permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(&tmp, permissions)?;
+    }
     std::fs::rename(&path, &old).context("failed to move the current launcher aside")?;
-    if let Err(e) = std::fs::write(&path, bytes) {
+    if let Err(e) = std::fs::rename(&tmp, &path) {
         let _ = std::fs::rename(&old, &path);
-        bail!("failed to write new launcher: {e}");
+        return Err(e).context("failed to install new launcher");
     }
     Ok(())
 }
