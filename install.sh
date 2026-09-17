@@ -7,43 +7,99 @@ root="${XDG_DATA_HOME:-$HOME/.local/share}/Pogly/cli"
 
 echo "Installing pogly-cli..."
 
-release=$(curl -fsSL -H "User-Agent: pogly-cli-installer" "https://api.github.com/repos/$repo/releases/latest")
-tag=$(echo "$release" | grep -m1 '"tag_name"' | sed -E 's/.*"([^"]+)".*/\1/')
+release_url="https://api.github.com/repos/$repo/releases/latest"
+
+release="$(curl -fsSL \
+    -H "Accept: application/vnd.github+json" \
+    -H "User-Agent: pogly-cli-installer" \
+    "$release_url")"
+
+tag="$(printf '%s' "$release" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n1 | cut -d'"' -f4)"
+
+if [[ -z "$tag" ]]; then
+    echo "Error: Could not determine the latest release tag."
+    echo ""
+    echo "GitHub API response:"
+    printf '%s\n' "$release"
+    exit 1
+fi
+
 version="${tag#v}"
 bin_dir="$root/bin/$version"
 
 mkdir -p "$bin_dir"
 
 echo "Downloading pogly-cli $tag..."
-curl -fsSL -o "$bin_dir/pogly-cli" "https://github.com/$repo/releases/download/$tag/pogly-cli"
+
+curl -fL \
+    -H "User-Agent: pogly-cli-installer" \
+    -o "$bin_dir/pogly-cli" \
+    "https://github.com/$repo/releases/download/$tag/pogly-cli"
+
 chmod +x "$bin_dir/pogly-cli"
 
 launcher="$root/pogly"
+launcher_tmp="$root/.pogly.tmp.$$"
+
+cleanup() {
+    rm -f "$launcher_tmp"
+}
+
+trap cleanup EXIT
+
 echo "Downloading launcher..."
-if ! curl -fsSL -o "$launcher" "https://github.com/$repo/releases/download/$tag/pogly"; then
-    mv -f "$launcher" "$launcher.old" 2>/dev/null || true
-    curl -fsSL -o "$launcher" "https://github.com/$repo/releases/download/$tag/pogly"
-fi
-chmod +x "$launcher"
+
+curl -fL \
+    -H "User-Agent: pogly-cli-installer" \
+    -o "$launcher_tmp" \
+    "https://github.com/$repo/releases/download/$tag/pogly"
+
+chmod +x "$launcher_tmp"
+mv -f "$launcher_tmp" "$launcher"
 
 printf '%s' "$version" > "$root/version"
 
-case "$(basename "${SHELL:-bash}")" in
+shell_name="$(basename "${SHELL:-bash}")"
+
+case "$shell_name" in
+    fish)
+        shell_rc="$HOME/.config/fish/config.fish"
+
+        mkdir -p "$(dirname "$shell_rc")"
+
+        if ! grep -Fqs "$root" "$shell_rc" 2>/dev/null; then
+            printf '\nset -gx PATH "%s" $PATH\n' "$root" >> "$shell_rc"
+            echo "Added $root to your PATH in $shell_rc."
+        fi
+        ;;
+
     zsh)
         shell_rc="$HOME/.zshrc"
+
+        if ! grep -Fqs "$root" "$shell_rc" 2>/dev/null; then
+            printf '\nexport PATH="%s:$PATH"\n' "$root" >> "$shell_rc"
+            echo "Added $root to your PATH in $shell_rc."
+        fi
         ;;
+
     bash)
         shell_rc="$HOME/.bashrc"
+
+        if ! grep -Fqs "$root" "$shell_rc" 2>/dev/null; then
+            printf '\nexport PATH="%s:$PATH"\n' "$root" >> "$shell_rc"
+            echo "Added $root to your PATH in $shell_rc."
+        fi
         ;;
+
     *)
         shell_rc="$HOME/.profile"
+
+        if ! grep -Fqs "$root" "$shell_rc" 2>/dev/null; then
+            printf '\nexport PATH="%s:$PATH"\n' "$root" >> "$shell_rc"
+            echo "Added $root to your PATH in $shell_rc."
+        fi
         ;;
 esac
-
-if ! grep -qs "$root" "$shell_rc" 2>/dev/null; then
-    echo "export PATH=\"$root:\$PATH\"" >> "$shell_rc"
-    echo "Added $root to your PATH in $shell_rc (open a new terminal if 'pogly' is not found)."
-fi
 
 echo ""
 echo "pogly-cli $tag installed."
